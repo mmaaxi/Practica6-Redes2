@@ -4,7 +4,7 @@ import threading
 
 # Configuración del peer
 PEER_HOST = 'localhost'
-PEER_PORT = 5001  # Cambia este puerto para cada instancia
+PEER_PORT = 5003  # Cambia este puerto para cada instancia
 DIRECTORY = 'files'
 
 PEERS = [
