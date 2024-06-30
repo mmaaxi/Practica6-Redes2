@@ -4,7 +4,7 @@ import threading
 
 # Configuración del peer
 PEER_HOST = 'localhost'
-PEER_PORT = 5001  # Cambia este puerto para cada instancia
+PEER_PORT = 5001  
 DIRECTORY = 'files'
 
 PEERS = [
@@ -57,7 +57,7 @@ def start_server():
         client_thread = threading.Thread(target=handle_client, args=(conn, addr))
         client_thread.start()
 
-def search_and_download(filename):
+def search_file(filename):
     # Búsqueda local
     local_files = list_files()
     if filename in local_files:
@@ -71,23 +71,38 @@ def search_and_download(filename):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect(peer)
-                s.send(f'B {filename}'.encode())  # Cambio aquí
+                s.send(f'B {filename}'.encode())
 
                 data = s.recv(1024).decode()
-                print(f"Archivos disponibles en {peer}:")
-                print(data)
+                files = data.splitlines()
 
-                if filename in data.splitlines():
-                    confirm = input(f"¿Descargar '{filename}' desde {peer}? (s/n): ")
-                    if confirm.lower() == 's':
-                        s.send(f'D {filename}'.encode())  # Cambio aquí
-                        new_filename = f"descargado_{filename}"
-                        with open(os.path.join(DIRECTORY, new_filename), 'wb') as file:
-                            file.write(s.recv(1024 * 1024))
-                        print(f"Descargado como {new_filename} desde {peer}")
-                        return
-                    else:
-                        return
+                if filename in files:
+                    print(f"Archivo '{filename}' encontrado en el peer {peer}")
+                    return
+        except Exception as e:
+            print(f"Error conectando a {peer}: {e}")
+    print(f"Archivo '{filename}' no encontrado en ningún peer")
+
+def download_file(filename):
+    # Búsqueda en otros peers
+    for peer in PEERS:
+        if peer[1] == PEER_PORT:
+            continue
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect(peer)
+                s.send(f'B {filename}'.encode())
+
+                data = s.recv(1024).decode()
+                files = data.splitlines()
+
+                if filename in files:
+                    s.send(f'D {filename}'.encode())
+                    new_filename = f"descargado_{filename}"
+                    with open(os.path.join(DIRECTORY, new_filename), 'wb') as file:
+                        file.write(s.recv(1024 * 1024))
+                    print(f"Archivo '{filename}' descargado desde el peer {peer} como '{new_filename}'")
+                    return
         except Exception as e:
             print(f"Error conectando a {peer}: {e}")
     print(f"Archivo '{filename}' no encontrado en ningún peer")
@@ -96,9 +111,12 @@ if __name__ == "__main__":
     threading.Thread(target=start_server).start()
 
     while True:
-        command = input("Ingrese comando (B/D nombrearchivo): ")  
-        if command.startswith('B') or command.startswith('D'):  
+        command = input("Ingrese comando (B/D nombrearchivo): ")
+        if command.startswith('B'):
             _, filename = command.split(' ', 1)
-            search_and_download(filename)
+            search_file(filename)
+        elif command.startswith('D'):
+            _, filename = command.split(' ', 1)
+            download_file(filename)
         else:
             print("Comando no válido")
